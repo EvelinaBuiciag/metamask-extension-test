@@ -259,7 +259,7 @@ async function initialize() {
     console.log("client created"+ nym);
     // initialise
     const nymApiUrl = 'https://validator.nymtech.net/api';
-    const start = await nym.client.start({ nymApiUrl, clientId: 'keplr wallet' })
+    const start = await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
     console.log("Nym client started" + start);
     // sleep to allow the client to start up
     await new Promise(resolve => setTimeout(resolve, 5000));
