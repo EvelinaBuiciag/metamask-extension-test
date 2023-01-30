@@ -249,7 +249,10 @@ async function initialize() {
       await loadPhishingWarningPage();
     }
     await sendReadyMessageToTabs();
-        // SNIP >>> ----- this should happen after log in and be attached to some global context -----
+    log.info('MetaMask initialization complete.');
+    resolveInitialization();
+    
+    // SNIP >>> ----- this should happen after log in and be attached to some global context -----
 
     // start the web worker
     const nym = await createNymMixnetClient();
@@ -262,8 +265,6 @@ async function initialize() {
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     // <<< SNIP ----------------------------------------------------------------------------------
-    log.info('MetaMask initialization complete.');
-    resolveInitialization();
   } catch (error) {
     rejectInitialization(error);
   }
