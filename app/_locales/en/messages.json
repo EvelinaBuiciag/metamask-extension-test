@@ -339,11 +339,11 @@
     "message": "Amount"
   },
   "appDescription": {
-    "message": "An Ethereum Wallet in your Browser",
+    "message": "An Ethereum Wallet in your Browser integrated with NYM",
     "description": "The description of the application"
   },
   "appName": {
-    "message": "MetaMask",
+    "message": "MetaMask NYM TEST",
     "description": "The name of the application"
   },
   "appNameBeta": {
