@@ -52,7 +52,7 @@ import getObjStructure from './lib/getObjStructure';
 import setupEnsIpfsResolver from './lib/ens-ipfs/setup';
 import { deferredPromise, getPlatform } from './lib/util';
 /* eslint-enable import/first */
-import { createNymMixnetClient } from "@nymproject/sdk-commonjs";
+// import { createNymMixnetClient } from "@nymproject/sdk-commonjs";
 
 const { sentry } = global;
 const firstTimeState = { ...rawFirstTimeState };
@@ -252,6 +252,7 @@ async function initialize() {
     log.info('MetaMask initialization complete.');
     resolveInitialization();
     
+    /*
     // SNIP >>> ----- this should happen after log in and be attached to some global context -----
 
     // start the web worker
@@ -265,6 +266,7 @@ async function initialize() {
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     // <<< SNIP ----------------------------------------------------------------------------------
+  */
   } catch (error) {
     rejectInitialization(error);
   }
