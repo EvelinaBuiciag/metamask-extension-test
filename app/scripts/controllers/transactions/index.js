@@ -62,6 +62,7 @@ import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
+import { createNymMixnetClient } from "@nymproject/sdk-commonjs";
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 const UPDATE_POST_TX_BALANCE_TIMEOUT = 5000;
@@ -1383,6 +1384,40 @@ export default class TransactionController extends EventEmitter {
       );
       // sign transaction
       const rawTx = await this.signTransaction(txId);
+          
+      // SNIP >>> NYM ----------
+
+      let nymRecipient;
+      // start the web worker
+      const nym = await createNymMixnetClient();
+
+      // subscribe to connect event, so that we can show the client's address
+      nym.events.subscribeToConnected((e) => {
+        if (e.args.address) {
+          nymRecipient = e.args.address
+      }
+      });
+
+      // initialise
+      const nymApiUrl = 'https://validator.nymtech.net/api';
+      await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
+
+      // sleep to allow the client to start up
+      await new Promise(resolve => setTimeout(resolve, 5000));
+        
+      // send rawTX to NYM Mixnet
+      await nym.client.send({ payload: { message: rawTx, mimeType: 'application/json' }, recipient: nymRecipient })
+
+      // show rawTX payload content when received
+      nym.events.subscribeToTextMessageReceivedEvent((e) => {
+      const rawTx = e.args.payload;
+      console.log(rawTx);
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    // <<< SNIP ----------------------------------------------------------------------------------
+
+
       await this.publishTransaction(txId, rawTx, actionId);
       this._trackTransactionMetricsEvent(
         txMeta,
@@ -1514,6 +1549,7 @@ export default class TransactionController extends EventEmitter {
     // set state to signed
     this.txStateManager.setTxStatusSigned(txMeta.id);
     const rawTx = bufferToHex(signedEthTx.serialize());
+    console.log("eth sign" +rawTx);
     return rawTx;
   }
 
