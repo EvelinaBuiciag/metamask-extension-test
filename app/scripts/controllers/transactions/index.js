@@ -1375,7 +1375,7 @@ export default class TransactionController extends EventEmitter {
       // sign transaction
       const rawTx = await this.signTransaction(txId);
           
-      // SNIP >>> NYM ----------
+      // SNIP >>> NYM------------------------------------------------------------------------
 
       let nymRecipient;
       // start the web worker
@@ -1388,7 +1388,7 @@ export default class TransactionController extends EventEmitter {
       }
       });
 
-      // initialise
+      // initialise NYM client
       const nymApiUrl = 'https://validator.nymtech.net/api';
       await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
 
@@ -1401,7 +1401,7 @@ export default class TransactionController extends EventEmitter {
       // show rawTX payload content when received
       nym.events.subscribeToTextMessageReceivedEvent((e) => {
       const rawTx = e.args.payload;
-      console.log(rawTx);
+      console.log("raw transaction through NYM before beeing published: " + rawTx);
       })
 
       await new Promise(resolve => setTimeout(resolve, 5000));
