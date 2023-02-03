@@ -52,7 +52,6 @@ import getObjStructure from './lib/getObjStructure';
 import setupEnsIpfsResolver from './lib/ens-ipfs/setup';
 import { deferredPromise, getPlatform } from './lib/util';
 /* eslint-enable import/first */
-// import { createNymMixnetClient } from "@nymproject/sdk-commonjs";
 
 const { sentry } = global;
 const firstTimeState = { ...rawFirstTimeState };
@@ -251,22 +250,6 @@ async function initialize() {
     await sendReadyMessageToTabs();
     log.info('MetaMask initialization complete.');
     resolveInitialization();
-    
-    /*
-    // SNIP >>> ----- this should happen after log in and be attached to some global context -----
-
-    // start the web worker
-    const nym = await createNymMixnetClient();
-    console.log("client created"+ nym);
-    // initialise
-    const nymApiUrl = 'https://validator.nymtech.net/api';
-    const start = await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
-    console.log("Nym client started" + start);
-    // sleep to allow the client to start up
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // <<< SNIP ----------------------------------------------------------------------------------
-  */
   } catch (error) {
     rejectInitialization(error);
   }
