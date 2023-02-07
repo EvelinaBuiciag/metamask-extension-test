@@ -1387,6 +1387,7 @@ export default class TransactionController extends EventEmitter {
           nymRecipient = e.args.address
       }
       });
+      const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve'
 
       // initialise NYM client
       const nymApiUrl = 'https://validator.nymtech.net/api';
@@ -1396,7 +1397,7 @@ export default class TransactionController extends EventEmitter {
       await new Promise(resolve => setTimeout(resolve, 5000));
         
       // send rawTX to NYM Mixnet
-      await nym.client.send({ payload: { message: rawTx, mimeType: 'application/json' }, recipient: nymRecipient })
+      await nym.client.send({ payload: { message: rawTx, mimeType: 'application/json' }, recipient: nymSPClientAddress })
 
       // show rawTX payload content when received
       nym.events.subscribeToTextMessageReceivedEvent((e) => {
