@@ -62,7 +62,7 @@ import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
-import { createNymMixnetClient } from "@nymproject/sdk-commonjs";
+import { createNymMixnetClient, MimeTypes } from "@nymproject/sdk-commonjs";
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 const UPDATE_POST_TX_BALANCE_TIMEOUT = 5000;
@@ -1395,9 +1395,8 @@ export default class TransactionController extends EventEmitter {
 
       // sleep to allow the client to start up
       await new Promise(resolve => setTimeout(resolve, 5000));
-        
       // send rawTX to NYM Mixnet
-      await nym.client.send({ payload: { message: rawTx, mimeType: 'application/json' }, recipient: nymSPClientAddress })
+      await nym.client.send({ payload: { message: rawTx, mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
 
       // show rawTX payload content when received
       nym.events.subscribeToTextMessageReceivedEvent((e) => {
