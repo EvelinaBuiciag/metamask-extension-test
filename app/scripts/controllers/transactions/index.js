@@ -1374,40 +1374,7 @@ export default class TransactionController extends EventEmitter {
       );
       // sign transaction
       const rawTx = await this.signTransaction(txId);
-          
-      // SNIP >>> NYM------------------------------------------------------------------------
-
-      let nymRecipient;
-      // start the web worker
-      const nym = await createNymMixnetClient();
-
-      // subscribe to connect event, so that we can show the client's address
-      nym.events.subscribeToConnected((e) => {
-        if (e.args.address) {
-          nymRecipient = e.args.address
-      }
-      });
-      const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve'
-
-      // initialise NYM client
-      const nymApiUrl = 'https://validator.nymtech.net/api';
-      await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
-
-      // sleep to allow the client to start up
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      // send rawTX to NYM Mixnet
-      await nym.client.send({ payload: { message: rawTx, mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
-
-      // show rawTX payload content when received
-      nym.events.subscribeToTextMessageReceivedEvent((e) => {
-      const rawTx = e.args.payload;
-      console.log("raw transaction through NYM before beeing published: " + rawTx);
-      })
-
-      await new Promise(resolve => setTimeout(resolve, 5000));
-    // <<< SNIP ----------------------------------------------------------------------------------
-
-
+      
       await this.publishTransaction(txId, rawTx, actionId);
       this._trackTransactionMetricsEvent(
         txMeta,
@@ -1524,6 +1491,39 @@ export default class TransactionController extends EventEmitter {
     const common = await this.getCommonConfiguration(txParams.from);
     const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
     const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
+
+     // SNIP >>> NYM------------------------------------------------------------------------
+
+     let nymRecipient;
+     // start the web worker
+     const nym = await createNymMixnetClient();
+
+     // subscribe to connect event, so that we can show the client's address
+     nym.events.subscribeToConnected((e) => {
+       if (e.args.address) {
+         nymRecipient = e.args.address
+     }
+     });
+     const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve'
+
+     // initialise NYM client
+     const nymApiUrl = 'https://validator.nymtech.net/api';
+     await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
+
+     // sleep to allow the client to start up
+     await new Promise(resolve => setTimeout(resolve, 5000));
+     // send rawTX to NYM Mixnet
+     await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
+
+     // show rawTX payload content when received
+     nym.events.subscribeToTextMessageReceivedEvent((e) => {
+     const rawTx = e.args.payload;
+     console.log("raw transaction through NYM before beeing published: " + rawTx);
+     })
+
+     await new Promise(resolve => setTimeout(resolve, 5000));
+   // <<< SNIP ----------------------------------------------------------------------------------
+
 
     // add r,s,v values for provider request purposes see createMetamaskMiddleware
     // and JSON rpc standard for further explanation
