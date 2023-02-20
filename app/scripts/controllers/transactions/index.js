@@ -1490,11 +1490,11 @@ export default class TransactionController extends EventEmitter {
     const fromAddress = txParams.from;
     const common = await this.getCommonConfiguration(txParams.from);
     const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
-    const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
+    //const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
 
      // SNIP >>> NYM------------------------------------------------------------------------
 
-     //let signedEthTx;
+     let signedEthTx;
      let nymRecipient;
      // start the web worker
      const nym = await createNymMixnetClient();
@@ -1506,11 +1506,11 @@ export default class TransactionController extends EventEmitter {
          console.log("WASM client address inside MM: " +nymRecipient);
      }
      });
-     const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve'
+     const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve';
 
      // initialise NYM client
      const nymApiUrl = 'https://validator.nymtech.net/api';
-     await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' })
+     await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' });
 
      // sleep to allow the client to start up
      await new Promise(resolve => setTimeout(resolve, 5000));
@@ -1522,10 +1522,12 @@ export default class TransactionController extends EventEmitter {
 
      // send txParams to NYM Mixnet
      await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
+     await new Promise(resolve => setTimeout(resolve, 10000));
 
      // show signedTX payload content when received
      nym.events.subscribeToTextMessageReceivedEvent((e) => {
-      //signedEthTx = e.args.payload;
+      console.log("entered here");
+      signedEthTx = e.args.payload;
      console.log("back from nym after Transaction had been signed " + signedEthTx);
      })
      
