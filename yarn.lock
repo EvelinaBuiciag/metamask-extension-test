@@ -4467,6 +4467,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@nymproject/sdk-commonjs@npm:^1.1.6":
+  version: 1.1.6
+  resolution: "@nymproject/sdk-commonjs@npm:1.1.6"
+  checksum: 220ff0b3525ff6b187d2e407cac3a6d9e709fa365d9438dc059aae010f122de6c8457f104d94c7c5111fb2aec67cca2aafdfa8a5bce0abcbf7561b1c2dcb3b32
+  languageName: node
+  linkType: hard
+
 "@oozcitak/dom@npm:1.15.10":
   version: 1.15.10
   resolution: "@oozcitak/dom@npm:1.15.10"
@@ -22269,6 +22276,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"json-rpc-middleware-stream@npm:^2.1.1":
+  version: 2.1.1
+  resolution: "json-rpc-middleware-stream@npm:2.1.1"
+  dependencies:
+    readable-stream: ^2.3.3
+    safe-event-emitter: ^1.0.1
+  checksum: e3c1c25c4b46b25e3c5a577e751ad3cabe3f1a387b5a8f345618563cb0ca24bc26eb25f170cf7ccb1e2c36d759947861cca0debb913b672ddf352b0f8add4ecf
+  languageName: node
+  linkType: hard
+
 "json-rpc-middleware-stream@npm:^4.2.0, json-rpc-middleware-stream@npm:^4.2.1":
   version: 4.2.1
   resolution: "json-rpc-middleware-stream@npm:4.2.1"
@@ -24213,6 +24230,7 @@ __metadata:
     "@metamask/test-dapp": ^5.4.0
     "@metamask/utils": ^3.4.1
     "@ngraveio/bc-ur": ^1.1.6
+    "@nymproject/sdk-commonjs": ^1.1.6
     "@popperjs/core": ^2.4.0
     "@reduxjs/toolkit": ^1.6.2
     "@segment/loosely-validate-event": ^2.0.0
@@ -24370,7 +24388,7 @@ __metadata:
     js-yaml: ^4.1.0
     jsdom: ^11.2.0
     json-rpc-engine: ^6.1.0
-    json-rpc-middleware-stream: ^4.2.1
+    json-rpc-middleware-stream: ^2.1.1
     jsonschema: ^1.2.4
     junit-report-merger: ^4.0.0
     koa: ^2.7.0
