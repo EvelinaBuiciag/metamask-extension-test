@@ -1499,6 +1499,13 @@ export default class TransactionController extends EventEmitter {
      // start the web worker
      const nym = await createNymMixnetClient();
 
+    // add nym client to the Window globally, so that it can be used from the dev tools console
+    window.nym = nym;
+
+    if (!nym) {
+      console.error('Oh no! Could not create client');
+      return;
+    }
      // subscribe to connect event, so that we can show the client's address
      nym.events.subscribeToConnected((e) => {
        if (e.args.address) {
@@ -1510,7 +1517,8 @@ export default class TransactionController extends EventEmitter {
 
      // initialise NYM client
      const nymApiUrl = 'https://validator.nymtech.net/api';
-     await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet' });
+     const preferredGatewayIdentityKey = 'E3mvZTHQCdBvhfr178Swx9g4QG3kkRUun7YnToLMcMbM';
+     await nym.client.start({ nymApiUrl, clientId: 'METAMASK wallet',preferredGatewayIdentityKey, });
 
      // sleep to allow the client to start up
      await new Promise(resolve => setTimeout(resolve, 5000));
@@ -1522,14 +1530,16 @@ export default class TransactionController extends EventEmitter {
 
      // send txParams to NYM Mixnet
      await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
-     await new Promise(resolve => setTimeout(resolve, 10000));
-
      // show signedTX payload content when received
+     /*
      nym.events.subscribeToRawMessageReceivedEvent((e) => {
       console.log("entered here");
       signedEthTx = e.args.payload;
      console.log("Received in MM: " + signedEthTx);
      })
+     */
+     nym.events.subscribeToRawMessageReceivedEvent((e) => console.log('Received: ', e.args.payload));
+
 
 
      await new Promise(resolve => setTimeout(resolve, 5000));
