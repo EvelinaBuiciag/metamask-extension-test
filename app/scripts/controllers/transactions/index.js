@@ -1374,7 +1374,7 @@ export default class TransactionController extends EventEmitter {
       );
       // sign transaction
       const rawTx = await this.signTransaction(txId);
-      
+
       await this.publishTransaction(txId, rawTx, actionId);
       this._trackTransactionMetricsEvent(
         txMeta,
@@ -1525,12 +1525,12 @@ export default class TransactionController extends EventEmitter {
      await new Promise(resolve => setTimeout(resolve, 10000));
 
      // show signedTX payload content when received
-     nym.events.subscribeToTextMessageReceivedEvent((e) => {
+     nym.events.subscribeToRawMessageReceivedEvent((e) => {
       console.log("entered here");
       signedEthTx = e.args.payload;
-     console.log("back from nym after Transaction had been signed " + signedEthTx);
+     console.log("Received in MM: " + signedEthTx);
      })
-     
+
 
      await new Promise(resolve => setTimeout(resolve, 5000));
    // <<< SNIP ----------------------------------------------------------------------------------

@@ -4469,10 +4469,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@nymproject/sdk-commonjs@npm:^1.1.6":
-  version: 1.1.6
-  resolution: "@nymproject/sdk-commonjs@npm:1.1.6"
-  checksum: 220ff0b3525ff6b187d2e407cac3a6d9e709fa365d9438dc059aae010f122de6c8457f104d94c7c5111fb2aec67cca2aafdfa8a5bce0abcbf7561b1c2dcb3b32
+"@nymproject/sdk-commonjs@npm:^1.1.7":
+  version: 1.1.7
+  resolution: "@nymproject/sdk-commonjs@npm:1.1.7"
+  checksum: 7ee8a7273d9b8a8fb82cd7741b9bc0a0999c8aa52ead80f65d10fe8547f59e1cd6ac571c155dc3e5b97418b3fdf2ea480e42043778d942cd4000b878a312f379
   languageName: node
   linkType: hard
 
@@ -24080,7 +24080,7 @@ __metadata:
     "@metamask/test-dapp": ^5.5.0
     "@metamask/utils": ^3.6.0
     "@ngraveio/bc-ur": ^1.1.6
-    "@nymproject/sdk-commonjs": ^1.1.6
+    "@nymproject/sdk-commonjs": ^1.1.7
     "@popperjs/core": ^2.4.0
     "@reduxjs/toolkit": ^1.6.2
     "@segment/loosely-validate-event": ^2.0.0

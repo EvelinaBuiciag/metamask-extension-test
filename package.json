@@ -259,7 +259,7 @@
     "@metamask/subject-metadata-controller": "^1.0.0",
     "@metamask/utils": "^3.6.0",
     "@ngraveio/bc-ur": "^1.1.6",
-    "@nymproject/sdk-commonjs": "^1.1.6",
+    "@nymproject/sdk-commonjs": "^1.1.7",
     "@popperjs/core": "^2.4.0",
     "@reduxjs/toolkit": "^1.6.2",
     "@segment/loosely-validate-event": "^2.0.0",
@@ -599,7 +599,9 @@
       "@storybook/core>@storybook/core-server>webpack>watchpack>watchpack-chokidar2>chokidar>fsevents": false,
       "resolve-url-loader>es6-iterator>es5-ext": false,
       "@storybook/test-runner>playwright": true,
-      "playwright": false
+      "playwright": false,
+      "@storybook/react>@pmmmwh/react-refresh-webpack-plugin>webpack-dev-server>chokidar>fsevents": false,
+      "sass-loader>node-sass": false
     }
   },
   "packageManager": "yarn@3.2.4"
