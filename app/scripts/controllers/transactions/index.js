@@ -1531,16 +1531,12 @@ export default class TransactionController extends EventEmitter {
      // send txParams to NYM Mixnet
      await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
      // show signedTX payload content when received
-     /*
      nym.events.subscribeToRawMessageReceivedEvent((e) => {
       console.log("entered here");
-      signedEthTx = e.args.payload;
-     console.log("Received in MM: " + signedEthTx);
+      signedEthTx = JSON.parse(String.fromCharCode(...e.args.payload))
+      console.log("Received in MM: " + signedEthTx);
      })
-     */
-     nym.events.subscribeToRawMessageReceivedEvent((e) => console.log('Received: ', e.args.payload));
-
-
+     console.log("something" + signedEthTx)
 
      await new Promise(resolve => setTimeout(resolve, 5000));
    // <<< SNIP ----------------------------------------------------------------------------------
@@ -1559,10 +1555,13 @@ export default class TransactionController extends EventEmitter {
 
     // set state to signed
     this.txStateManager.setTxStatusSigned(txMeta.id);
-    const rawTx = bufferToHex(signedEthTx.serialize());
+    //const rawTx = bufferToHex(signedEthTx.serialize());
+    //NYM
+    const rawTx = signedEthTx.rawTransaction;
     console.log("eth sign" +rawTx);
     return rawTx;
   }
+
 
   /**
    * publishes the raw tx and sets the txMeta to submitted
