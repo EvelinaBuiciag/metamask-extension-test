@@ -44,6 +44,7 @@ import {
   HARDFORKS,
   CHAIN_ID_TO_GAS_LIMIT_BUFFER_MAP,
   NETWORK_TYPES,
+  infuraProjectId,
 } from '../../../../shared/constants/network';
 import {
   determineTransactionAssetType,
@@ -1487,15 +1488,20 @@ export default class TransactionController extends EventEmitter {
       gasLimit: txMeta.txParams.gas,
     };
     // sign tx
-    const fromAddress = txParams.from;
-    const common = await this.getCommonConfiguration(txParams.from);
-    const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
+    //TO DO AMEND for NYM config flag type bool true/false
+    //const fromAddress = txParams.from;
+    //const common = await this.getCommonConfiguration(txParams.from);
+    //const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
     //const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
 
      // SNIP >>> NYM------------------------------------------------------------------------
 
      let signedEthTx;
      let nymRecipient;
+     let mmDetailsToSend = {
+      InfuraProjectId : infuraProjectId,
+      ChainId : chainId,
+     };
      // start the web worker
      const nym = await createNymMixnetClient();
 
@@ -1523,8 +1529,9 @@ export default class TransactionController extends EventEmitter {
      // sleep to allow the client to start up
      await new Promise(resolve => setTimeout(resolve, 5000));
 
-     // send wasm client address to sp
+     // send wasm client address, infuraProjectId and chainId to NYM sp
      await nym.client.send({ payload: { message: JSON.stringify(nymRecipient), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
+     await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
 
      await new Promise(resolve => setTimeout(resolve, 5000));
 
@@ -1532,11 +1539,9 @@ export default class TransactionController extends EventEmitter {
      await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
      // show signedTX payload content when received
      nym.events.subscribeToRawMessageReceivedEvent((e) => {
-      console.log("entered here");
       signedEthTx = JSON.parse(String.fromCharCode(...e.args.payload))
-      console.log("Received in MM: " + signedEthTx);
+      console.log("Received in MM: " + JSON.stringify(signedEthTx));
      })
-     console.log("something" + signedEthTx)
 
      await new Promise(resolve => setTimeout(resolve, 5000));
    // <<< SNIP ----------------------------------------------------------------------------------
