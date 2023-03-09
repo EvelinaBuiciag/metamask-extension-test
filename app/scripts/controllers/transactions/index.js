@@ -62,6 +62,8 @@ import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
+import { createNymClient } from '../network/createNymClient';
+
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 const UPDATE_POST_TX_BALANCE_TIMEOUT = 5000;
@@ -1489,7 +1491,9 @@ export default class TransactionController extends EventEmitter {
     const common = await this.getCommonConfiguration(txParams.from);
     const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
     const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
-
+    // SNIP >>> NYM------------------------------------------------------------------------
+    await createNymClient();
+    //--------------
     // add r,s,v values for provider request purposes see createMetamaskMiddleware
     // and JSON rpc standard for further explanation
     txMeta.r = bufferToHex(signedEthTx.r);
