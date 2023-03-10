@@ -44,6 +44,7 @@ import {
   HARDFORKS,
   CHAIN_ID_TO_GAS_LIMIT_BUFFER_MAP,
   NETWORK_TYPES,
+  infuraProjectId,
 } from '../../../../shared/constants/network';
 import {
   determineTransactionAssetType,
@@ -62,8 +63,8 @@ import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
-import { createNymClient } from '../network/createNymClient';
-
+import { createNymClient, getNymSPClientAddress } from '../network/createNymClient';
+import { MimeTypes } from "@nymproject/sdk-commonjs";
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 const UPDATE_POST_TX_BALANCE_TIMEOUT = 5000;
@@ -1487,13 +1488,25 @@ export default class TransactionController extends EventEmitter {
       gasLimit: txMeta.txParams.gas,
     };
     // sign tx
-    const fromAddress = txParams.from;
-    const common = await this.getCommonConfiguration(txParams.from);
-    const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
-    const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
+    //const fromAddress = txParams.from;
+    //const common = await this.getCommonConfiguration(txParams.from);
+    //const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
+    //const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
     // SNIP >>> NYM------------------------------------------------------------------------
-    await createNymClient();
-    //--------------
+    let signedEthTx;
+    let mmDetailsToSend = {
+      InfuraProjectId : infuraProjectId,
+      ChainId : chainId,
+     };
+    const nym  = await createNymClient();
+    const recipient = getNymSPClientAddress();
+    console.log(recipient)
+    await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient: recipient })
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: recipient })
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    //>>> NYM------------------------------------------------------------------------
+
     // add r,s,v values for provider request purposes see createMetamaskMiddleware
     // and JSON rpc standard for further explanation
     txMeta.r = bufferToHex(signedEthTx.r);
@@ -1507,7 +1520,9 @@ export default class TransactionController extends EventEmitter {
 
     // set state to signed
     this.txStateManager.setTxStatusSigned(txMeta.id);
-    const rawTx = bufferToHex(signedEthTx.serialize());
+    //const rawTx = bufferToHex(signedEthTx.serialize());
+    const rawTx = signedEthTx.rawTransaction;
+    console.log("eth sign" +rawTx);
     return rawTx;
   }
 
