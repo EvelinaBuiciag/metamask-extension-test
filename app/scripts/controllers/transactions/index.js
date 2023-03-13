@@ -1495,18 +1495,16 @@ export default class TransactionController extends EventEmitter {
     // SNIP >>> NYM------------------------------------------------------------------------
     let signedEthTx;
     let mmDetailsToSend = {
-      InfuraProjectId : infuraProjectId,
-      ChainId : chainId,
+      Method : 'signTransaction',
+      Params : txParams,
      };
-    const {nym, nymRecipient} = await createNymClient();
+    const nym= await createNymClient();
     nym.events.subscribeToRawMessageReceivedEvent((e) => {
       signedEthTx = JSON.parse(String.fromCharCode(...e.args.payload))
       console.log("Received in MM: " + JSON.stringify(signedEthTx));
     })
     const recipient = getNymSPClientAddress();
     await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient })
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient })
     await new Promise(resolve => setTimeout(resolve, 5000));
      //________________________________
 
@@ -1550,7 +1548,21 @@ export default class TransactionController extends EventEmitter {
     );
     let txHash;
     try {
-      txHash = await this.query.sendRawTransaction(rawTx);
+      let mmDetailsToSend = {
+        Method : 'sendRawTransaction',
+        Params : rawTx,
+      };
+      const nym= await createNymClient();
+      nym.events.subscribeToRawMessageReceivedEvent((e) => {
+        txHash = JSON.parse(String.fromCharCode(...e.args.payload))
+        console.log("Received in MM: " + JSON.stringify(txHash));
+      })
+      const recipient = getNymSPClientAddress();
+      await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient })
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      //________________________________
+
+      //txHash = await this.query.sendRawTransaction(rawTx);
     } catch (error) {
       if (error.message.toLowerCase().includes('known transaction')) {
         txHash = keccak(toBuffer(addHexPrefix(rawTx), 'hex')).toString('hex');
