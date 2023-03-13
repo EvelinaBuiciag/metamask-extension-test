@@ -1498,14 +1498,17 @@ export default class TransactionController extends EventEmitter {
       InfuraProjectId : infuraProjectId,
       ChainId : chainId,
      };
-    const nym  = await createNymClient();
+    const {nym, nymRecipient} = await createNymClient();
+    nym.events.subscribeToRawMessageReceivedEvent((e) => {
+      signedEthTx = JSON.parse(String.fromCharCode(...e.args.payload))
+      console.log("Received in MM: " + JSON.stringify(signedEthTx));
+    })
     const recipient = getNymSPClientAddress();
-    console.log(recipient)
-    await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient: recipient })
+    await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient })
     await new Promise(resolve => setTimeout(resolve, 5000));
-    await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient: recipient })
+    await nym.client.send({ payload: { message: JSON.stringify(txParams), mimeType: MimeTypes.TextPlain }, recipient })
     await new Promise(resolve => setTimeout(resolve, 5000));
-    //>>> NYM------------------------------------------------------------------------
+     //________________________________
 
     // add r,s,v values for provider request purposes see createMetamaskMiddleware
     // and JSON rpc standard for further explanation
@@ -1522,7 +1525,7 @@ export default class TransactionController extends EventEmitter {
     this.txStateManager.setTxStatusSigned(txMeta.id);
     //const rawTx = bufferToHex(signedEthTx.serialize());
     const rawTx = signedEthTx.rawTransaction;
-    console.log("eth sign" +rawTx);
+    console.log("eth sign via nym: " +rawTx);
     return rawTx;
   }
 

@@ -1,9 +1,11 @@
 import { createNymMixnetClient, MimeTypes } from "@nymproject/sdk-commonjs";
 
+let nym;
+let nymRecipient;
+
 export async function createNymClient() {
-  let nymRecipient;
   // start the web worker
-  const nym = await createNymMixnetClient();
+  nym = await createNymMixnetClient();
   // add nym client to the Window globally, so that it can be used from the dev tools console
   window.nym = nym;
 
@@ -31,7 +33,7 @@ export async function createNymClient() {
   await nym.client.send({ payload: { message: JSON.stringify(nymRecipient), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
   await new Promise(resolve => setTimeout(resolve, 5000));
 
-  return { nym, nymSPClientAddress };
+  return { nym, nymRecipient};
 }
 
 export function getNymSPClientAddress() {
