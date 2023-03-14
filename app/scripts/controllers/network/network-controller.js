@@ -29,8 +29,7 @@ import {
 import getFetchWithTimeout from '../../../../shared/modules/fetch-with-timeout';
 import createInfuraClient from './createInfuraClient';
 import createJsonRpcClient from './createJsonRpcClient';
-import { createNymClient, getNymSPClientAddress } from '../network/createNymClient';
-import { MimeTypes } from "@nymproject/sdk-commonjs";
+import { createNymClient, getNymSPClientAddress, sendNymPayload } from '../network/createNymClient';
 
 const env = process.env.METAMASK_ENV;
 const fetchWithTimeout = getFetchWithTimeout();
@@ -411,17 +410,15 @@ export default class NetworkController extends EventEmitter {
     const isInfura = INFURA_PROVIDER_TYPES.includes(type);
     if (isInfura) {
       this._configureInfuraProvider(type, this._infuraProjectId);
-      let mmDetailsToSend = {
-        InfuraProjectId : this._infuraProjectId,
-        ChainId : chainId,
-      };
-      createNymClient()
-        .then(nym => {
-          const recipient = getNymSPClientAddress();
-          nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient });
-          return new Promise(resolve => setTimeout(resolve, 5000));
-        })
-        .catch(error => console.error(error));
+      // create the Nym client and send the nymSPClientAddress
+      createNymClient().then(() => {
+        let mmDetailsToSend = {
+          InfuraProjectId : this._infuraProjectId,
+          ChainId : chainId,
+        };
+        // send payload using sendNymPayload function
+        sendNymPayload(mmDetailsToSend)
+      }).catch(error => console.error(error));
       // url-based rpc endpoints
     } else if (type === NETWORK_TYPES.RPC) {
       this._configureStandardProvider(rpcUrl, chainId);

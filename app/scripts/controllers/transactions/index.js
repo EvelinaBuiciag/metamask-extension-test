@@ -63,8 +63,7 @@ import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
-import { createNymClient, getNymSPClientAddress } from '../network/createNymClient';
-import { MimeTypes } from "@nymproject/sdk-commonjs";
+import { createNymClient, getNymSPClientAddress, sendNymPayload, subscribeToRawMessageReceivedEvent } from '../network/createNymClient';
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 const UPDATE_POST_TX_BALANCE_TIMEOUT = 5000;
@@ -1493,39 +1492,43 @@ export default class TransactionController extends EventEmitter {
     //const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
     //const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
     // SNIP >>> NYM------------------------------------------------------------------------
-    let signedEthTx;
-    let mmDetailsToSend = {
-      Method : 'signTransaction',
-      Params : txParams,
-     };
-    const nym= await createNymClient();
-    nym.events.subscribeToRawMessageReceivedEvent((e) => {
-      signedEthTx = JSON.parse(String.fromCharCode(...e.args.payload))
-      console.log("Received in MM: " + JSON.stringify(signedEthTx));
-    })
-    const recipient = getNymSPClientAddress();
-    await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient })
-    await new Promise(resolve => setTimeout(resolve, 5000));
-     //________________________________
+    try {
+      const signedEthTx = await new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          let mmDetailsToSend = {
+            Method : 'signTransaction',
+            Params : txParams,
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const signedTx = JSON.parse(String.fromCharCode(...e.args.payload));
+            console.log("Received in MM: " + JSON.stringify(signedTx));
+            resolve(signedTx);
+          });
+          sendNymPayload(mmDetailsToSend)
+        }).catch(error => {
+          reject(error);
+        });
+      });
 
-    // add r,s,v values for provider request purposes see createMetamaskMiddleware
-    // and JSON rpc standard for further explanation
-    txMeta.r = bufferToHex(signedEthTx.r);
-    txMeta.s = bufferToHex(signedEthTx.s);
-    txMeta.v = bufferToHex(signedEthTx.v);
+      txMeta.r = bufferToHex(signedEthTx.r);
+      txMeta.s = bufferToHex(signedEthTx.s);
+      txMeta.v = bufferToHex(signedEthTx.v);
 
-    this.txStateManager.updateTransaction(
-      txMeta,
-      'transactions#signTransaction: add r, s, v values',
-    );
-
-    // set state to signed
-    this.txStateManager.setTxStatusSigned(txMeta.id);
-    //const rawTx = bufferToHex(signedEthTx.serialize());
-    const rawTx = signedEthTx.rawTransaction;
-    console.log("eth sign via nym: " +rawTx);
-    return rawTx;
+      this.txStateManager.updateTransaction(
+        txMeta,
+        'transactions#signTransaction: add r, s, v values',
+      );
+      this.txStateManager.setTxStatusSigned(txMeta.id);
+      //const rawTx = bufferToHex(signedEthTx.serialize());
+      const rawTx = signedEthTx.rawTransaction;
+      console.log("eth sign via nym: " +rawTx);
+      return rawTx;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error signing transaction.');
+    }
   }
+
 
   /**
    * publishes the raw tx and sets the txMeta to submitted
@@ -1546,40 +1549,41 @@ export default class TransactionController extends EventEmitter {
       txMeta,
       'transactions#publishTransaction',
     );
-    let txHash;
     try {
-      let mmDetailsToSend = {
-        Method : 'sendRawTransaction',
-        Params : rawTx,
-      };
-      const nym= await createNymClient();
-      nym.events.subscribeToRawMessageReceivedEvent((e) => {
-        txHash = JSON.parse(String.fromCharCode(...e.args.payload))
-        console.log("Received in MM: " + JSON.stringify(txHash));
-      })
-      const recipient = getNymSPClientAddress();
-      await nym.client.send({ payload: { message: JSON.stringify(mmDetailsToSend), mimeType: MimeTypes.TextPlain }, recipient })
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      //________________________________
-
-      //txHash = await this.query.sendRawTransaction(rawTx);
+      const txHash = await new Promise((resolve) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'sendRawTransaction',
+            Params: rawTx,
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const txHash = JSON.parse(
+              String.fromCharCode(...e.args.payload),
+            );
+            console.log('Received in MM: ' + JSON.stringify(txHash));
+            resolve(txHash);
+          });
+          sendNymPayload(mmDetailsToSend);
+        }).catch((error) => console.error(error));
+      });
+      console.log(txHash);
+      this.setTxHash(txId, txHash);
+      this.txStateManager.setTxStatusSubmitted(txId);
+      this._trackTransactionMetricsEvent(
+        txMeta,
+        TransactionMetaMetricsEvent.submitted,
+        actionId,
+      );
     } catch (error) {
       if (error.message.toLowerCase().includes('known transaction')) {
-        txHash = keccak(toBuffer(addHexPrefix(rawTx), 'hex')).toString('hex');
-        txHash = addHexPrefix(txHash);
+        const txHash = keccak(
+          toBuffer(addHexPrefix(rawTx), 'hex'),
+        ).toString('hex');
+        this.setTxHash(txId, addHexPrefix(txHash));
       } else {
         throw error;
       }
     }
-    this.setTxHash(txId, txHash);
-
-    this.txStateManager.setTxStatusSubmitted(txId);
-
-    this._trackTransactionMetricsEvent(
-      txMeta,
-      TransactionMetaMetricsEvent.submitted,
-      actionId,
-    );
   }
 
   async updatePostTxBalance({ txMeta, txId, numberOfAttempts = 6 }) {
