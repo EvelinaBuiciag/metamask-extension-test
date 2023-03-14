@@ -1,18 +1,25 @@
 import { createNymMixnetClient, MimeTypes } from "@nymproject/sdk-commonjs";
 
 let nym;
+let nymRecipient;
+const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve';
 
 export async function createNymClient() {
-  let nymRecipient;
+  if (nym) {
+    return nym;
+  }
+
   // start the web worker
   nym = await createNymMixnetClient();
-  // add nym client to the Window globally, so that it can be used from the dev tools console
-  window.nym = nym;
 
   if (!nym) {
     console.error('Oh no! Could not create client');
     return;
   }
+
+  // add nym client to the Window globally, so that it can be used from the dev tools console
+  window.nym = nym;
+
   // subscribe to connect event, so that we can show the client's address
   nym.events.subscribeToConnected((e) => {
     if (e.args.address) {
@@ -20,7 +27,6 @@ export async function createNymClient() {
       console.log("WASM client address inside MM: " +nymRecipient);
     }
   });
-  const nymSPClientAddress = 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve';
 
   // initialise NYM client
   const nymApiUrl = 'https://validator.nymtech.net/api';
@@ -30,12 +36,23 @@ export async function createNymClient() {
   await new Promise(resolve => setTimeout(resolve, 5000));
 
   // send wasm client address
-  await nym.client.send({ payload: { message: JSON.stringify(nymRecipient), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress })
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  await nym.client.send({ payload: { message: JSON.stringify(nymRecipient), mimeType: MimeTypes.TextPlain }, recipient: nymSPClientAddress });
 
   return nym;
 }
 
 export function getNymSPClientAddress() {
-  return 'H5PDeFvW2rwZiFhJ8295HvAkCdrLBfkwEv51XkEKTWKv.Gw5LreC7EJvZrqE5o5xt5AYyC5qT8K4LVG9VYQxeUE2m@62F81C9GrHDRja9WCqozemRFSzFPMecY85MbGwn6efve';
+  return nymSPClientAddress;
+}
+
+export async function sendNymPayload(payload) {
+  const nymClient = await createNymClient();
+  const recipient = getNymSPClientAddress();
+  await nymClient.client.send({ payload: { message: JSON.stringify(payload), mimeType: MimeTypes.TextPlain }, recipient });
+  await new Promise(resolve => setTimeout(resolve, 5000));
+}
+
+export async function subscribeToRawMessageReceivedEvent(handler) {
+  const nymClient = await createNymClient();
+  nymClient.events.subscribeToRawMessageReceivedEvent(handler);
 }
