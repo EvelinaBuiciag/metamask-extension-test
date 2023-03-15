@@ -1059,9 +1059,29 @@ export default class TransactionController extends EventEmitter {
       console.error(e);
     }
 
-    const gasPrice = await this.query.gasPrice();
-
-    return { gasPrice: gasPrice && addHexPrefix(gasPrice.toString(16)) };
+    //const gasPrice = await this.query.gasPrice();
+    try{
+      const gasPrice = await new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          let mmDetailsToSend = {
+            Method : 'gasPrice'
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const gasPrice = JSON.parse(String.fromCharCode(...e.args.payload));
+            console.log("Received in MM from Nym: " + JSON.stringify(gasPrice));
+            resolve(gasPrice);
+          });
+          sendNymPayload(mmDetailsToSend)
+        }).catch(error => {
+          reject(error);
+        });
+      });
+      console.log("gasPrice via nym: " + gasPrice);
+      return { gasPrice: gasPrice && addHexPrefix(gasPrice.toString(16)) };
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error fetching gas.');
+    }
   }
 
   /**
@@ -1501,7 +1521,7 @@ export default class TransactionController extends EventEmitter {
           };
           subscribeToRawMessageReceivedEvent((e) => {
             const signedTx = JSON.parse(String.fromCharCode(...e.args.payload));
-            console.log("Received in MM: " + JSON.stringify(signedTx));
+            console.log("Received in MM from Nym: " + JSON.stringify(signedTx));
             resolve(signedTx);
           });
           sendNymPayload(mmDetailsToSend)
@@ -1542,8 +1562,32 @@ export default class TransactionController extends EventEmitter {
     const txMeta = this.txStateManager.getTransaction(txId);
     txMeta.rawTx = rawTx;
     if (txMeta.type === TransactionType.swap) {
-      const preTxBalance = await this.query.getBalance(txMeta.txParams.from);
+      //const preTxBalance = await this.query.getBalance(txMeta.txParams.from);
+      try{
+      const preTxBalance = await new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'getBalance',
+            Params: txMeta.txParams.from,
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const preTxBalance = JSON.parse(
+              String.fromCharCode(...e.args.payload),
+            );
+            console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
+            resolve(preTxBalance);
+          });
+          sendNymPayload(mmDetailsToSend);
+        }).catch(error => {
+          reject(error);
+        });
+      });
       txMeta.preTxBalance = preTxBalance.toString(16);
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error getting balance');
+    }
+
     }
     this.txStateManager.updateTransaction(
       txMeta,
@@ -1560,13 +1604,13 @@ export default class TransactionController extends EventEmitter {
             const txHash = JSON.parse(
               String.fromCharCode(...e.args.payload),
             );
-            console.log('Received in MM: ' + JSON.stringify(txHash));
+            console.log('Received in MM from Nym: ' + JSON.stringify(txHash));
             resolve(txHash);
           });
           sendNymPayload(mmDetailsToSend);
         }).catch((error) => console.error(error));
       });
-      console.log(txHash);
+      console.log("Published txHash via Nym: " +txHash);
       this.setTxHash(txId, txHash);
       this.txStateManager.setTxStatusSubmitted(txId);
       this._trackTransactionMetricsEvent(
@@ -1587,35 +1631,58 @@ export default class TransactionController extends EventEmitter {
   }
 
   async updatePostTxBalance({ txMeta, txId, numberOfAttempts = 6 }) {
-    const postTxBalance = await this.query.getBalance(txMeta.txParams.from);
-    const latestTxMeta = this.txStateManager.getTransaction(txId);
-    const approvalTxMeta = latestTxMeta.approvalTxId
-      ? this.txStateManager.getTransaction(latestTxMeta.approvalTxId)
-      : null;
-    latestTxMeta.postTxBalance = postTxBalance.toString(16);
-    const isDefaultTokenAddress = isSwapsDefaultTokenAddress(
-      txMeta.destinationTokenAddress,
-      txMeta.chainId,
-    );
-    if (
-      isDefaultTokenAddress &&
-      txMeta.preTxBalance === latestTxMeta.postTxBalance &&
-      numberOfAttempts > 0
-    ) {
-      setTimeout(() => {
-        // If postTxBalance is the same as preTxBalance, try it again.
-        this.updatePostTxBalance({
-          txMeta,
-          txId,
-          numberOfAttempts: numberOfAttempts - 1,
+    //const postTxBalance = await this.query.getBalance(txMeta.txParams.from);
+    try{
+      const preTxBalance = await new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'getBalance',
+            Params: txMeta.txParams.from,
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const preTxBalance = JSON.parse(
+              String.fromCharCode(...e.args.payload),
+            );
+            console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
+            resolve(preTxBalance);
+          });
+          sendNymPayload(mmDetailsToSend);
+        }).catch(error => {
+          reject(error);
         });
-      }, UPDATE_POST_TX_BALANCE_TIMEOUT);
-    } else {
-      this.txStateManager.updateTransaction(
-        latestTxMeta,
-        'transactions#confirmTransaction - add postTxBalance',
+      });
+      const latestTxMeta = this.txStateManager.getTransaction(txId);
+      const approvalTxMeta = latestTxMeta.approvalTxId
+        ? this.txStateManager.getTransaction(latestTxMeta.approvalTxId)
+        : null;
+      latestTxMeta.postTxBalance = postTxBalance.toString(16);
+      const isDefaultTokenAddress = isSwapsDefaultTokenAddress(
+        txMeta.destinationTokenAddress,
+        txMeta.chainId,
       );
-      this._trackSwapsMetrics(latestTxMeta, approvalTxMeta);
+      if (
+        isDefaultTokenAddress &&
+        txMeta.preTxBalance === latestTxMeta.postTxBalance &&
+        numberOfAttempts > 0
+      ) {
+        setTimeout(() => {
+          // If postTxBalance is the same as preTxBalance, try it again.
+          this.updatePostTxBalance({
+            txMeta,
+            txId,
+            numberOfAttempts: numberOfAttempts - 1,
+          });
+        }, UPDATE_POST_TX_BALANCE_TIMEOUT);
+      } else {
+        this.txStateManager.updateTransaction(
+          latestTxMeta,
+          'transactions#confirmTransaction - add postTxBalance',
+        );
+        this._trackSwapsMetrics(latestTxMeta, approvalTxMeta);
+      }
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error getting balance');
     }
   }
 

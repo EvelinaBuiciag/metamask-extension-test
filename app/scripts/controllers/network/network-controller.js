@@ -410,6 +410,7 @@ export default class NetworkController extends EventEmitter {
     const isInfura = INFURA_PROVIDER_TYPES.includes(type);
     if (isInfura) {
       this._configureInfuraProvider(type, this._infuraProjectId);
+      //TO DO change and  send only chain id here  based on type changing (switchNetwork above method)
       // create the Nym client and send the nymSPClientAddress
       createNymClient().then(() => {
         let mmDetailsToSend = {
