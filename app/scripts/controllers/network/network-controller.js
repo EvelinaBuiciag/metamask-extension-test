@@ -29,7 +29,7 @@ import {
 import getFetchWithTimeout from '../../../../shared/modules/fetch-with-timeout';
 import createInfuraClient from './createInfuraClient';
 import createJsonRpcClient from './createJsonRpcClient';
-import { createNymClient, getNymSPClientAddress, sendNymPayload } from '../network/createNymClient';
+import { createNymClient, getNymSPClientAddress, subscribeToRawMessageReceivedEvent, sendNymPayload } from './createNymClient';
 
 const env = process.env.METAMASK_ENV;
 const fetchWithTimeout = getFetchWithTimeout();
@@ -302,6 +302,21 @@ export default class NetworkController extends EventEmitter {
    * @returns {object} Block header
    */
   _getLatestBlock() {
+     return new Promise((resolve, reject) => {
+      const mmDetailsToSend = {
+        Method: 'eth_getBlockByNumber',
+        Params: ['latest', false],
+      };
+
+      subscribeToRawMessageReceivedEvent((e) => {
+        const block = JSON.parse(String.fromCharCode(...e.args.payload));
+        console.log("Received block data: " + JSON.stringify(block));
+        resolve(block);
+      });
+
+      sendNymPayload(mmDetailsToSend);
+    });
+    /*TO DO nym flag or something similar to add
     return new Promise((resolve, reject) => {
       const { provider } = this.getProviderAndBlockTracker();
       const ethQuery = new EthQuery(provider);
@@ -315,6 +330,7 @@ export default class NetworkController extends EventEmitter {
         },
       );
     });
+    */
   }
 
   _setNetworkState(network) {
