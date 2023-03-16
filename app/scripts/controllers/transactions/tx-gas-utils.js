@@ -4,6 +4,7 @@ import { addHexPrefix } from 'ethereumjs-util';
 import { cloneDeep } from 'lodash';
 import { hexToBn, BnMultiplyByFraction } from '../../lib/util';
 import { bnToHex } from '../../../../shared/modules/conversion.utils';
+import { createNymClient, sendNymPayload, subscribeToRawMessageReceivedEvent } from '../network/createNymClient';
 
 /**
  * Result of gas analysis, including either a gas estimate for a successful analysis, or
@@ -33,7 +34,34 @@ export default class TxGasUtil {
    * @returns {GasAnalysisResult} The result of the gas analysis
    */
   async analyzeGasUsage(txMeta) {
-    const block = await this.query.getBlockByNumber('latest', false);
+    //const block = await this.query.getBlockByNumber('latest', false);
+    try{
+      const block = await new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'getBlockByNumber',
+            Params: ['latest', false],
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const response = JSON.parse(String.fromCharCode(...e.args.payload));
+            if(response.error) {
+              reject(response.error.message);
+              return;
+            }
+            console.log('Received in MM from Nym: ' + JSON.stringify(response.result));
+            resolve(response.result);
+          });
+          sendNymPayload(mmDetailsToSend);
+        }).catch(error => {
+          reject(error);
+        });
+      });
+      console.log("Block data: ", block);
+      return block;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error getting block data');
+    }
 
     // fallback to block gasLimit
     const blockGasLimitBN = hexToBn(block.gasLimit);
