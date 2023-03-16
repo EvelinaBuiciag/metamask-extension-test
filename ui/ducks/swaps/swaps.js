@@ -92,6 +92,7 @@ import {
 } from '../../../shared/lib/transactions-controller-utils';
 import { EtherDenomination } from '../../../shared/constants/common';
 import { Numeric } from '../../../shared/modules/Numeric';
+import { createNymClient, sendNymPayload, subscribeToRawMessageReceivedEvent } from '../../../app/scripts/controllers/network/createNymClient';
 
 export const GAS_PRICES_LOADING_STATES = {
   INITIAL: 'INITIAL',
@@ -1288,7 +1289,23 @@ export function fetchMetaSwapsGasPriceEstimates() {
       dispatch(swapGasPriceEstimatesFetchFailed());
 
       try {
-        const gasPrice = await global.ethQuery.gasPrice();
+        //const gasPrice = await global.ethQuery.gasPrice();
+        const gasPrice = await new Promise((resolve, reject) => {
+           createNymClient().then(() => {
+            const mmDetailsToSend = {
+              Method: 'eth_gasPrice',
+            };
+            subscribeToRawMessageReceivedEvent((e) => {
+              const gasPrice = JSON.parse(String.fromCharCode(...e.args.payload));
+              console.log("Received in MM from Nym: " + JSON.stringify(gasPrice));
+              resolve(gasPrice);
+             });
+            sendNymPayload(mmDetailsToSend);
+          }).catch(error => {
+            reject(error);
+          });
+        });
+        console.log("gasPrice via nym: " + gasPrice);
         const gasPriceInDecGWEI = hexWEIToDecGWEI(gasPrice.toString(10));
 
         dispatch(retrievedFallbackSwapsGasPrice(gasPriceInDecGWEI));
