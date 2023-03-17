@@ -32,6 +32,7 @@ import {
   SINGLE_CALL_BALANCES_ADDRESS_ARBITRUM,
 } from '../constants/contracts';
 import { previousValueComparator } from './util';
+import { createNymClient, getNymSPClientAddress, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../controllers/network/createNymClient';
 
 /**
  * This module is responsible for tracking any number of accounts and caching their current balances & transaction
@@ -213,7 +214,34 @@ export default class AccountTracker {
     this._currentBlockNumber = blockNumber;
 
     // block gasLimit polling shouldn't be in account-tracker shouldn't be here...
-    const currentBlock = await this._query.getBlockByNumber(blockNumber, false);
+    // const currentBlock = await this._query.getBlockByNumber(blockNumber, false);
+    let currentBlock;
+    try {
+      currentBlock = await new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'getBlockByNumber',
+            Params: [blockNumber, false],
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const response = JSON.parse(String.fromCharCode(...e.args.payload));
+            if(response.error) {
+              reject(response.error.message);
+              return;
+            }
+            console.log('Received in MM from Nym: ' + JSON.stringify(response.result));
+            resolve(response.result);
+          });
+          sendNymPayload(mmDetailsToSend);
+        }).catch(error => {
+          reject(error);
+        });
+      });
+      console.log("Block data: ", currentBlock);
+    } catch (error) {
+      console.error(error);
+      return;
+    }
     if (!currentBlock) {
       return;
     }
@@ -344,7 +372,33 @@ export default class AccountTracker {
 
     // query balance
     try {
-      balance = await this._query.getBalance(address);
+      //balance = await this._query.getBalance(address);
+      balance = await new Promise((resolve, reject) => {
+        const cached = this.accountTracker.store.getState().accounts[address];
+        if (cached && cached.balance) {
+          resolve(cached.balance);
+        } else {
+          try {
+            createHymClient().then(() => {
+              const mmDetailsToSend = {
+                Method: 'getBalance',
+                Params: address,
+              };
+              subscribeToRawMessageReceivedEvent((e) => {
+                const balance = JSON.parse(String.fromCharCode(...e.args.payload));
+                console.log('Received in MM from Hym: ' + JSON.stringify(balance));
+                resolve(balance);
+              });
+              sendHymPayload(mmDetailsToSend);
+            }).catch(error => {
+              reject(error);
+            });
+          } catch (error) {
+            console.error(error);
+            reject(new Error('Error getting balance'));
+          }
+        }
+      });
     } catch (error) {
       if (error.data?.request?.method !== 'eth_getBalance') {
         throw error;
