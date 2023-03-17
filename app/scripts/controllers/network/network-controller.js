@@ -302,20 +302,34 @@ export default class NetworkController extends EventEmitter {
    * @returns {object} Block header
    */
   _getLatestBlock() {
-     return new Promise((resolve, reject) => {
-      const mmDetailsToSend = {
-        Method: 'eth_getBlockByNumber',
-        Params: ['latest', false],
-      };
-
-      subscribeToRawMessageReceivedEvent((e) => {
-        const block = JSON.parse(String.fromCharCode(...e.args.payload));
-        console.log("Received block data: " + JSON.stringify(block));
-        resolve(block);
+    let block;
+    try {
+      block = new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'getBlockByNumber',
+            Params: ['latest', false],
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const response = JSON.parse(String.fromCharCode(...e.args.payload));
+            if(response.error) {
+              reject(response.error.message);
+              return;
+            }
+            console.log('Received in MM from Nym: ' + JSON.stringify(response.result));
+            resolve(response.result);
+          });
+          sendNymPayload(mmDetailsToSend);
+        }).catch(error => {
+          reject(error);
+        });
       });
-
-      sendNymPayload(mmDetailsToSend);
-    });
+      console.log("Block data: ", block);
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error getting block data');
+    }
+    return block;
     /*TO DO nym flag or something similar to add
     return new Promise((resolve, reject) => {
       const { provider } = this.getProviderAndBlockTracker();

@@ -34,9 +34,10 @@ export default class TxGasUtil {
    * @returns {GasAnalysisResult} The result of the gas analysis
    */
   async analyzeGasUsage(txMeta) {
+    let block;
     //const block = await this.query.getBlockByNumber('latest', false);
     try{
-      const block = await new Promise((resolve, reject) => {
+      block = await new Promise((resolve, reject) => {
         createNymClient().then(() => {
           const mmDetailsToSend = {
             Method: 'getBlockByNumber',
@@ -57,11 +58,6 @@ export default class TxGasUtil {
         });
       });
       console.log("Block data: ", block);
-      return block;
-    } catch (error) {
-      console.error(error);
-      throw new Error('Error getting block data');
-    }
 
     // fallback to block gasLimit
     const blockGasLimitBN = hexToBn(block.gasLimit);
@@ -84,6 +80,10 @@ export default class TxGasUtil {
       estimatedGasHex,
       simulationFails,
     };
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error getting block data');
+    }
   }
 
   /**
