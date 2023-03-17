@@ -180,6 +180,7 @@ import {
 } from './controllers/permissions';
 import createRPCMethodTrackingMiddleware from './lib/createRPCMethodTrackingMiddleware';
 import { securityProviderCheck } from './lib/security-provider-helpers';
+import { createNymClient, getNymSPClientAddress, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../scripts/controllers/network/createNymClient';
 
 export const METAMASK_CONTROLLER_EVENTS = {
   // Fired after state changes that impact the extension badge (unapproved msg count)
@@ -2459,6 +2460,29 @@ export default class MetamaskController extends EventEmitter {
       if (cached && cached.balance) {
         resolve(cached.balance);
       } else {
+        try {
+          createNymClient().then(() => {
+            const mmDetailsToSend = {
+              Method: 'getBalance',
+              Params: address,
+            };
+            subscribeToRawMessageReceivedEvent((e) => {
+              const balance = JSON.parse(
+                String.fromCharCode(...e.args.payload),
+              );
+              console.log('Received in MM from Nym: ' + JSON.stringify(balance));
+              resolve(balance);
+            });
+            sendNymPayload(mmDetailsToSend);
+          }).catch(error => {
+            reject(error);
+          });
+        } catch (error) {
+          console.error(error);
+          reject(new Error('Error getting balance'));
+        }
+      }
+        /*
         ethQuery.getBalance(address, (error, balance) => {
           if (error) {
             reject(error);
@@ -2468,6 +2492,7 @@ export default class MetamaskController extends EventEmitter {
           }
         });
       }
+      */
     });
   }
 
