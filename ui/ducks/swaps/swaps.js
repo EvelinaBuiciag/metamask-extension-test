@@ -1293,7 +1293,7 @@ export function fetchMetaSwapsGasPriceEstimates() {
         const gasPrice = await new Promise((resolve, reject) => {
            createNymClient().then(() => {
             const mmDetailsToSend = {
-              Method: 'eth_gasPrice',
+              Method: 'gasPrice',
             };
             subscribeToRawMessageReceivedEvent((e) => {
               const gasPrice = JSON.parse(String.fromCharCode(...e.args.payload));
