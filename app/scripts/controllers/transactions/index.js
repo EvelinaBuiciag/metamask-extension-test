@@ -1507,6 +1507,7 @@ export default class TransactionController extends EventEmitter {
       chainId,
       gasLimit: txMeta.txParams.gas,
     };
+    await new Promise(resolve => setTimeout(resolve, 5000));
     // sign tx
     //const fromAddress = txParams.from;
     //const common = await this.getCommonConfiguration(txParams.from);

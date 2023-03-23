@@ -301,7 +301,7 @@ export default class NetworkController extends EventEmitter {
    *
    * @returns {object} Block header
    */
-  _getLatestBlock() {
+   _getLatestBlock() {
     let block;
     try {
       block = new Promise((resolve, reject) => {
@@ -310,15 +310,18 @@ export default class NetworkController extends EventEmitter {
             Method: 'getBlockByNumber',
             Params: ['latest', false],
           };
-          subscribeToRawMessageReceivedEvent((e) => {
-            const response = JSON.parse(String.fromCharCode(...e.args.payload));
-            if(response.error) {
-              reject(response.error.message);
-              return;
-            }
-            console.log('Received in MM from Nym: ' + JSON.stringify(response.result));
-            resolve(response.result);
+          const messagePromise = new Promise((messageResolve, messageReject) => {
+            subscribeToRawMessageReceivedEvent((e) => {
+              const response = JSON.parse(String.fromCharCode(...e.args.payload));
+              if (response.error) {
+                messageReject(response.error.message);
+                return;
+              }
+              console.log('Received in MM from Nym: ' + JSON.stringify(response));
+              messageResolve(response);
+            });
           });
+          messagePromise.then(resolve).catch(reject);
           sendNymPayload(mmDetailsToSend);
         }).catch(error => {
           reject(error);

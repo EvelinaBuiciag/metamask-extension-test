@@ -219,19 +219,21 @@ export default class AccountTracker {
     try {
       currentBlock = await new Promise((resolve, reject) => {
         createNymClient().then(() => {
+          subscribeToRawMessageReceivedEvent((e) => {
+            const response = JSON.parse(String.fromCharCode(...e.args.payload));
+            console.log(response)
+            if (response.error) {
+              reject(response.error.message);
+              return;
+            }
+            console.log('Received in MM from Nym: ' + JSON.stringify(response));
+            resolve(response);
+          });
           const mmDetailsToSend = {
             Method: 'getBlockByNumber',
             Params: [blockNumber, false],
           };
-          subscribeToRawMessageReceivedEvent((e) => {
-            const response = JSON.parse(String.fromCharCode(...e.args.payload));
-            if(response.error) {
-              reject(response.error.message);
-              return;
-            }
-            console.log('Received in MM from Nym: ' + JSON.stringify(response.result));
-            resolve(response.result);
-          });
+          console.log('Sending payload:', JSON.stringify(mmDetailsToSend));
           sendNymPayload(mmDetailsToSend);
         }).catch(error => {
           reject(error);
