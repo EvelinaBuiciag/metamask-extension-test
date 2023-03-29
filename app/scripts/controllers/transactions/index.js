@@ -1567,24 +1567,27 @@ export default class TransactionController extends EventEmitter {
       //const preTxBalance = await this.query.getBalance(txMeta.txParams.from);
       try {
         const nymClient = await createNymClient();
-        const preTxBalance = await new Promise((resolve, reject) => {
+        const preTxBalancePromise =  new Promise((resolve, reject) => {
           const mmDetailsToSend = {
             Method: 'getBalance',
             Params: txMeta.txParams.from,
           };
-          subscribeToRawMessageReceivedEvent((e) => {
+          const onRawMessageReceived = (e) => {
             const preTxBalance = JSON.parse(String.fromCharCode(...e.args.payload));
             console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
             resolve(preTxBalance);
-          });
+            unsubscribeFromRawMessageReceivedEvent(onRawMessageReceived);
+          };
+          subscribeToRawMessageReceivedEvent(onRawMessageReceived);
           sendNymPayload(mmDetailsToSend);
         });
-        txMeta.preTxBalance = preTxBalance.toString(16);
-      } catch (error) {
-        console.error(error);
-        throw new Error('Error getting balance');
-      }
+        const preTxBalance = await preTxBalancePromise;
+      txMeta.preTxBalance = preTxBalance.toString(16);
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error getting balance');
     }
+  }
     this.txStateManager.updateTransaction(
       txMeta,
       'transactions#publishTransaction',
@@ -1628,25 +1631,20 @@ export default class TransactionController extends EventEmitter {
 
   async updatePostTxBalance({ txMeta, txId, numberOfAttempts = 6 }) {
     //const postTxBalance = await this.query.getBalance(txMeta.txParams.from);
-    try{
-      const preTxBalance = await new Promise((resolve, reject) => {
-        createNymClient().then(() => {
-          const mmDetailsToSend = {
-            Method: 'getBalance',
-            Params: txMeta.txParams.from,
-          };
-          subscribeToRawMessageReceivedEvent((e) => {
-            const preTxBalance = JSON.parse(
-              String.fromCharCode(...e.args.payload),
-            );
-            console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
-            resolve(preTxBalance);
-          });
-          sendNymPayload(mmDetailsToSend);
-        }).catch(error => {
-          reject(error);
-        });
+    try {
+      await createNymClient();
+      const mmDetailsToSend = {
+        Method: 'getBalance',
+        Params: txMeta.txParams.from,
+      };
+      await subscribeToRawMessageReceivedEvent((e) => {
+        const preTxBalance = JSON.parse(
+          String.fromCharCode(...e.args.payload),
+        );
+        console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
+        txMeta.preTxBalance = preTxBalance.toString(16);
       });
+      await sendNymPayload(mmDetailsToSend);
       const latestTxMeta = this.txStateManager.getTransaction(txId);
       const approvalTxMeta = latestTxMeta.approvalTxId
         ? this.txStateManager.getTransaction(latestTxMeta.approvalTxId)
