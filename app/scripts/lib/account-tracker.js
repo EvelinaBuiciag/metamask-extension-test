@@ -32,7 +32,7 @@ import {
   SINGLE_CALL_BALANCES_ADDRESS_ARBITRUM,
 } from '../constants/contracts';
 import { previousValueComparator } from './util';
-import { createNymClient, getNymSPClientAddress, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../controllers/network/createNymClient';
+import { createNymClient, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../controllers/network/createNymClient';
 
 /**
  * This module is responsible for tracking any number of accounts and caching their current balances & transaction
@@ -212,38 +212,47 @@ export default class AccountTracker {
    */
   async _updateForBlock(blockNumber) {
     this._currentBlockNumber = blockNumber;
-
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      let currentBlock;
+      try {
+        currentBlock = await new Promise((resolve, reject) => {
+          createNymClient().then(() => {
+            subscribeToRawMessageReceivedEvent((e) => {
+              const response = JSON.parse(String.fromCharCode(...e.args.payload));
+              console.log(response)
+              if (response.error) {
+                reject(response.error.message);
+                return;
+              }
+              console.log('Received in MM from Nym: ' + JSON.stringify(response));
+              resolve(response);
+            });
+            const mmDetailsToSend = {
+              Method: 'getBlockByNumber',
+              Params: [blockNumber, false],
+            };
+            console.log('Sending payload:', JSON.stringify(mmDetailsToSend));
+            sendNymPayload(mmDetailsToSend);
+          }).catch(error => {
+            reject(error);
+          });
+        });
+        console.log("Block data: ", currentBlock);
+      } catch (error) {
+        console.error(error);
+        return;
+      }
+    }
+    // END >>> NYM
+    else {
+      // block gasLimit polling shouldn't be in account-tracker shouldn't be here...
+      const currentBlock = await this._query.getBlockByNumber(blockNumber, false);
+    }
     // block gasLimit polling shouldn't be in account-tracker shouldn't be here...
     // const currentBlock = await this._query.getBlockByNumber(blockNumber, false);
-    let currentBlock;
-    try {
-      currentBlock = await new Promise((resolve, reject) => {
-        createNymClient().then(() => {
-          subscribeToRawMessageReceivedEvent((e) => {
-            const response = JSON.parse(String.fromCharCode(...e.args.payload));
-            console.log(response)
-            if (response.error) {
-              reject(response.error.message);
-              return;
-            }
-            console.log('Received in MM from Nym: ' + JSON.stringify(response));
-            resolve(response);
-          });
-          const mmDetailsToSend = {
-            Method: 'getBlockByNumber',
-            Params: [blockNumber, false],
-          };
-          console.log('Sending payload:', JSON.stringify(mmDetailsToSend));
-          sendNymPayload(mmDetailsToSend);
-        }).catch(error => {
-          reject(error);
-        });
-      });
-      console.log("Block data: ", currentBlock);
-    } catch (error) {
-      console.error(error);
-      return;
-    }
     if (!currentBlock) {
       return;
     }

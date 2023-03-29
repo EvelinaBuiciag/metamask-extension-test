@@ -180,7 +180,7 @@ import {
 } from './controllers/permissions';
 import createRPCMethodTrackingMiddleware from './lib/createRPCMethodTrackingMiddleware';
 import { securityProviderCheck } from './lib/security-provider-helpers';
-import { createNymClient, getNymSPClientAddress, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../scripts/controllers/network/createNymClient';
+import { createNymClient, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../scripts/controllers/network/createNymClient';
 
 export const METAMASK_CONTROLLER_EVENTS = {
   // Fired after state changes that impact the extension badge (unapproved msg count)
@@ -2460,39 +2460,44 @@ export default class MetamaskController extends EventEmitter {
       if (cached && cached.balance) {
         resolve(cached.balance);
       } else {
-        try {
-          createNymClient().then(() => {
-            const mmDetailsToSend = {
-              Method: 'getBalance',
-              Params: address,
-            };
-            subscribeToRawMessageReceivedEvent((e) => {
-              const balance = JSON.parse(
-                String.fromCharCode(...e.args.payload),
-              );
-              console.log('Received in MM from Nym: ' + JSON.stringify(balance));
-              resolve(balance);
+        // TODO move this to a config level/feature flag
+        // SNIP >>> NYM
+        let nym = true
+        if (nym === true) {
+          try {
+            createNymClient().then(() => {
+              const mmDetailsToSend = {
+                Method: 'getBalance',
+                Params: address,
+              };
+              subscribeToRawMessageReceivedEvent((e) => {
+                const balance = JSON.parse(
+                  String.fromCharCode(...e.args.payload),
+                );
+                console.log('Received in MM from Nym: ' + JSON.stringify(balance));
+                resolve(balance);
+              });
+              sendNymPayload(mmDetailsToSend);
+            }).catch(error => {
+              reject(error);
             });
-            sendNymPayload(mmDetailsToSend);
-          }).catch(error => {
-            reject(error);
+          } catch (error) {
+            console.error(error);
+            reject(new Error('Error getting balance'));
+          }
+        }
+        // END >>> NYM
+        else {
+          ethQuery.getBalance(address, (error, balance) => {
+            if (error) {
+              reject(error);
+              log.error(error);
+            } else {
+              resolve(balance || '0x0');
+            }
           });
-        } catch (error) {
-          console.error(error);
-          reject(new Error('Error getting balance'));
         }
       }
-        /*
-        ethQuery.getBalance(address, (error, balance) => {
-          if (error) {
-            reject(error);
-            log.error(error);
-          } else {
-            resolve(balance || '0x0');
-          }
-        });
-      }
-      */
     });
   }
 
@@ -3244,6 +3249,7 @@ export default class MetamaskController extends EventEmitter {
         msgParams,
       );
       const rawSig = await this.keyringController.signMessage(cleanMsgParams);
+      console.log(rawSig);
       this.messageManager.setMsgStatusSigned(msgId, rawSig);
       return this.getState();
     } catch (error) {

@@ -34,45 +34,77 @@ export default class TxGasUtil {
    * @returns {GasAnalysisResult} The result of the gas analysis
    */
   async analyzeGasUsage(txMeta) {
-    return new Promise((resolve, reject) => {
-      createNymClient().then(() => {
-        const mmDetailsToSend = {
-          Method: 'getBlockByNumber',
-          Params: ['latest', false],
-        };
-        subscribeToRawMessageReceivedEvent((e) => {
-          const response = JSON.parse(String.fromCharCode(...e.args.payload));
-          if(response.error) {
-            reject(response.error.message);
-            return;
-          }
-          console.log('Received in MM from Nym: ' + JSON.stringify(response));
-          // fallback to block gasLimit
-          const blockGasLimitBN = hexToBn(block.gasLimit);
-          const saferGasLimitBN = BnMultiplyByFraction(blockGasLimitBN, 19, 20);
-          let estimatedGasHex = bnToHex(saferGasLimitBN);
-          let simulationFails;
-          try {
-            estimatedGasHex = this.estimateTxGas(txMeta);
-          } catch (error) {
-            log.warn(error);
-            simulationFails = {
-              reason: error.message,
-              errorKey: error.errorKey,
-              debug: { blockNumber: block.number, blockGasLimit: block.gasLimit },
-            };
-          }
-          resolve({
-            blockGasLimit: response.result.gasLimit,
-            estimatedGasHex,
-            simulationFails,
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      return new Promise((resolve, reject) => {
+        createNymClient().then(() => {
+          const mmDetailsToSend = {
+            Method: 'getBlockByNumber',
+            Params: ['latest', false],
+          };
+          subscribeToRawMessageReceivedEvent((e) => {
+            const response = JSON.parse(String.fromCharCode(...e.args.payload));
+            if(response.error) {
+              reject(response.error.message);
+              return;
+            }
+            console.log('Received in MM from Nym: ' + JSON.stringify(response));
+            // fallback to block gasLimit
+            const blockGasLimitBN = hexToBn(block.gasLimit);
+            const saferGasLimitBN = BnMultiplyByFraction(blockGasLimitBN, 19, 20);
+            let estimatedGasHex = bnToHex(saferGasLimitBN);
+            let simulationFails;
+            try {
+              estimatedGasHex = this.estimateTxGas(txMeta);
+            } catch (error) {
+              log.warn(error);
+              simulationFails = {
+                reason: error.message,
+                errorKey: error.errorKey,
+                debug: { blockNumber: block.number, blockGasLimit: block.gasLimit },
+              };
+            }
+            resolve({
+              blockGasLimit: response.result.gasLimit,
+              estimatedGasHex,
+              simulationFails,
+            });
           });
+          sendNymPayload(mmDetailsToSend)
+        }).catch(error => {
+          reject(error);
         });
-        sendNymPayload(mmDetailsToSend)
-      }).catch(error => {
-        reject(error);
       });
-    });
+    }
+    //  END >>> NYM
+    else {
+      const block = await this.query.getBlockByNumber('latest', false);
+
+      // fallback to block gasLimit
+      const blockGasLimitBN = hexToBn(block.gasLimit);
+      const saferGasLimitBN = BnMultiplyByFraction(blockGasLimitBN, 19, 20);
+      let estimatedGasHex = bnToHex(saferGasLimitBN);
+      let simulationFails;
+      try {
+        estimatedGasHex = await this.estimateTxGas(txMeta);
+      } catch (error) {
+        log.warn(error);
+        simulationFails = {
+          reason: error.message,
+          errorKey: error.errorKey,
+          debug: { blockNumber: block.number, blockGasLimit: block.gasLimit },
+        };
+      }
+
+      return {
+        blockGasLimit: block.gasLimit,
+        estimatedGasHex,
+        simulationFails,
+      };
+    }
+
   }
 
   /**

@@ -1287,36 +1287,56 @@ export function fetchMetaSwapsGasPriceEstimates() {
       }
 
       dispatch(swapGasPriceEstimatesFetchFailed());
-
-      try {
-        //const gasPrice = await global.ethQuery.gasPrice();
-        const gasPrice = await new Promise((resolve, reject) => {
-           createNymClient().then(() => {
-            const mmDetailsToSend = {
-              Method: 'gasPrice',
-            };
-            subscribeToRawMessageReceivedEvent((e) => {
-              const gasPrice = JSON.parse(String.fromCharCode(...e.args.payload));
-              console.log("Received in MM from Nym: " + JSON.stringify(gasPrice));
-              resolve(gasPrice);
-             });
-            sendNymPayload(mmDetailsToSend);
-          }).catch(error => {
-            reject(error);
+      // TODO move this to a config level/feature flag
+      // SNIP >>> NYM
+      let nym = true
+      if (nym === true) {
+        try {
+          const gasPrice = await new Promise((resolve, reject) => {
+             createNymClient().then(() => {
+              const mmDetailsToSend = {
+                Method: 'gasPrice',
+              };
+              subscribeToRawMessageReceivedEvent((e) => {
+                const gasPrice = JSON.parse(String.fromCharCode(...e.args.payload));
+                console.log("Received in MM from Nym: " + JSON.stringify(gasPrice));
+                resolve(gasPrice);
+               });
+              sendNymPayload(mmDetailsToSend);
+            }).catch(error => {
+              reject(error);
+            });
           });
-        });
-        console.log("gasPrice via nym: " + gasPrice);
-        const gasPriceInDecGWEI = hexWEIToDecGWEI(gasPrice.toString(10));
+          console.log("gasPrice via nym: " + gasPrice);
+          const gasPriceInDecGWEI = hexWEIToDecGWEI(gasPrice.toString(10));
 
-        dispatch(retrievedFallbackSwapsGasPrice(gasPriceInDecGWEI));
-        return null;
-      } catch (networkGasPriceError) {
-        console.error(
-          `Failed to retrieve fallback gas price: `,
-          networkGasPriceError,
-        );
-        return null;
+          dispatch(retrievedFallbackSwapsGasPrice(gasPriceInDecGWEI));
+          return null;
+        } catch (networkGasPriceError) {
+          console.error(
+            `Failed to retrieve fallback gas price: `,
+            networkGasPriceError,
+          );
+          return null;
+        }
       }
+      // END >>> NYM
+      else {
+        try {
+          const gasPrice = await global.ethQuery.gasPrice();
+          const gasPriceInDecGWEI = hexWEIToDecGWEI(gasPrice.toString(10));
+
+          dispatch(retrievedFallbackSwapsGasPrice(gasPriceInDecGWEI));
+          return null;
+        } catch (networkGasPriceError) {
+          console.error(
+            `Failed to retrieve fallback gas price: `,
+            networkGasPriceError,
+          );
+          return null;
+        }
+      }
+
     }
 
     dispatch(

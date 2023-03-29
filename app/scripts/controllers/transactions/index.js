@@ -62,7 +62,7 @@ import TransactionStateManager from './tx-state-manager';
 import TxGasUtil from './tx-gas-utils';
 import PendingTransactionTracker from './pending-tx-tracker';
 import * as txUtils from './lib/util';
-import { createNymClient, getNymSPClientAddress, sendNymPayload, subscribeToRawMessageReceivedEvent } from '../network/createNymClient';
+import { createNymClient, sendNymPayload, subscribeToRawMessageReceivedEvent } from '../network/createNymClient';
 
 const MAX_MEMSTORE_TX_LIST_SIZE = 100; // Number of transactions (by unique nonces) to keep in memory
 const UPDATE_POST_TX_BALANCE_TIMEOUT = 5000;
@@ -1057,11 +1057,13 @@ export default class TransactionController extends EventEmitter {
     } catch (e) {
       console.error(e);
     }
-
-    //const gasPrice = await this.query.gasPrice();
-    try {
-      const mmDetailsToSend = {
-        Method: 'gasPrice'
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      try {
+        const mmDetailsToSend = {
+          Method: 'gasPrice'
       };
 
       // Send message and wait for response
@@ -1083,6 +1085,13 @@ export default class TransactionController extends EventEmitter {
       console.error(error);
       throw new Error('Error fetching gas.');
     }
+  }
+  // END >>> NYM
+  else {
+    const gasPrice = await this.query.gasPrice();
+
+    return { gasPrice: gasPrice && addHexPrefix(gasPrice.toString(16)) };
+  }
   }
 
   /**
@@ -1507,31 +1516,57 @@ export default class TransactionController extends EventEmitter {
       chainId,
       gasLimit: txMeta.txParams.gas,
     };
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    // sign tx
-    //const fromAddress = txParams.from;
-    //const common = await this.getCommonConfiguration(txParams.from);
-    //const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
-    //const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
-    // SNIP >>> NYM------------------------------------------------------------------------
-    try {
-      const signedEthTx = await new Promise((resolve, reject) => {
-        createNymClient().then(() => {
-          let mmDetailsToSend = {
-            Method : 'signTransaction',
-            Params : txParams,
-          };
-          subscribeToRawMessageReceivedEvent((e) => {
-            const signedTx = JSON.parse(String.fromCharCode(...e.args.payload));
-            console.log("Received in MM from Nym: " + JSON.stringify(signedTx));
-            resolve(signedTx);
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      try {
+        const signedEthTx = await new Promise((resolve, reject) => {
+          createNymClient().then(() => {
+            let mmDetailsToSend = {
+              Method : 'signTransaction',
+              Params : txParams,
+            };
+            subscribeToRawMessageReceivedEvent((e) => {
+              const signedTx = JSON.parse(String.fromCharCode(...e.args.payload));
+              console.log("Received in MM from Nym: " + JSON.stringify(signedTx));
+              resolve(signedTx);
+            });
+            sendNymPayload(mmDetailsToSend)
+          }).catch(error => {
+            reject(error);
           });
-          sendNymPayload(mmDetailsToSend)
-        }).catch(error => {
-          reject(error);
         });
-      });
 
+        txMeta.r = bufferToHex(signedEthTx.r);
+        txMeta.s = bufferToHex(signedEthTx.s);
+        txMeta.v = bufferToHex(signedEthTx.v);
+
+        this.txStateManager.updateTransaction(
+          txMeta,
+          'transactions#signTransaction: add r, s, v values',
+        );
+        this.txStateManager.setTxStatusSigned(txMeta.id);
+        //const rawTx = bufferToHex(signedEthTx.serialize());
+        const rawTx = signedEthTx.rawTransaction;
+        console.log("eth sign via nym: " +rawTx);
+        return rawTx;
+      } catch (error) {
+        console.error(error);
+        throw new Error('Error signing transaction.');
+      }
+    }
+    // END >>> NYM
+    else {
+      // sign tx
+      const fromAddress = txParams.from;
+      const common = await this.getCommonConfiguration(txParams.from);
+      const unsignedEthTx = TransactionFactory.fromTxData(txParams, { common });
+      const signedEthTx = await this.signEthTx(unsignedEthTx, fromAddress);
+
+      // add r,s,v values for provider request purposes see createMetamaskMiddleware
+      // and JSON rpc standard for further explanation
       txMeta.r = bufferToHex(signedEthTx.r);
       txMeta.s = bufferToHex(signedEthTx.s);
       txMeta.v = bufferToHex(signedEthTx.v);
@@ -1540,14 +1575,11 @@ export default class TransactionController extends EventEmitter {
         txMeta,
         'transactions#signTransaction: add r, s, v values',
       );
+
+      // set state to signed
       this.txStateManager.setTxStatusSigned(txMeta.id);
-      //const rawTx = bufferToHex(signedEthTx.serialize());
-      const rawTx = signedEthTx.rawTransaction;
-      console.log("eth sign via nym: " +rawTx);
+      const rawTx = bufferToHex(signedEthTx.serialize());
       return rawTx;
-    } catch (error) {
-      console.error(error);
-      throw new Error('Error signing transaction.');
     }
   }
 
@@ -1564,87 +1596,164 @@ export default class TransactionController extends EventEmitter {
     const txMeta = this.txStateManager.getTransaction(txId);
     txMeta.rawTx = rawTx;
     if (txMeta.type === TransactionType.swap) {
-      //const preTxBalance = await this.query.getBalance(txMeta.txParams.from);
-      try {
-        const nymClient = await createNymClient();
-        const preTxBalancePromise =  new Promise((resolve, reject) => {
-          const mmDetailsToSend = {
-            Method: 'getBalance',
-            Params: txMeta.txParams.from,
-          };
-          const onRawMessageReceived = (e) => {
-            const preTxBalance = JSON.parse(String.fromCharCode(...e.args.payload));
-            console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
-            resolve(preTxBalance);
-            unsubscribeFromRawMessageReceivedEvent(onRawMessageReceived);
-          };
-          subscribeToRawMessageReceivedEvent(onRawMessageReceived);
-          sendNymPayload(mmDetailsToSend);
-        });
-        const preTxBalance = await preTxBalancePromise;
-      txMeta.preTxBalance = preTxBalance.toString(16);
-    } catch (error) {
-      console.error(error);
-      throw new Error('Error getting balance');
-    }
-  }
-    this.txStateManager.updateTransaction(
-      txMeta,
-      'transactions#publishTransaction',
-    );
-    try {
-      const txHash = await new Promise((resolve) => {
-        createNymClient().then(() => {
-          const mmDetailsToSend = {
-            Method: 'sendRawTransaction',
-            Params: rawTx,
-          };
-          subscribeToRawMessageReceivedEvent((e) => {
-            const txHash = JSON.parse(
-              String.fromCharCode(...e.args.payload),
-            );
-            console.log('Received in MM from Nym: ' + JSON.stringify(txHash));
-            resolve(txHash);
+      // TODO move this to a config level/feature flag
+      // SNIP >>> NYM
+      let nym = true
+      if (nym === true) {
+        try {
+          const nymClient = await createNymClient();
+          const preTxBalancePromise =  new Promise((resolve, reject) => {
+            const mmDetailsToSend = {
+              Method: 'getBalance',
+              Params: txMeta.txParams.from,
+            };
+            const onRawMessageReceived = (e) => {
+              const preTxBalance = JSON.parse(String.fromCharCode(...e.args.payload));
+              console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
+              resolve(preTxBalance);
+              unsubscribeFromRawMessageReceivedEvent(onRawMessageReceived);
+            };
+            subscribeToRawMessageReceivedEvent(onRawMessageReceived);
+            sendNymPayload(mmDetailsToSend);
           });
-          sendNymPayload(mmDetailsToSend);
-        }).catch((error) => console.error(error));
-      });
-      console.log("Published txHash via Nym: " +txHash);
+          const preTxBalance = await preTxBalancePromise;
+          txMeta.preTxBalance = preTxBalance.toString(16);
+        } catch (error) {
+          console.error(error);
+          throw new Error('Error getting balance');
+        }
+      }
+      // END >>> NYM
+      else {
+        const preTxBalance = await this.query.getBalance(txMeta.txParams.from);
+        txMeta.preTxBalance = preTxBalance.toString(16);
+      }
+    }
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      this.txStateManager.updateTransaction(
+        txMeta,
+        'transactions#publishTransaction',
+      );
+      try {
+        const txHash = await new Promise((resolve) => {
+          createNymClient().then(() => {
+            const mmDetailsToSend = {
+              Method: 'sendRawTransaction',
+              Params: rawTx,
+            };
+            subscribeToRawMessageReceivedEvent((e) => {
+              const txHash = JSON.parse(
+                String.fromCharCode(...e.args.payload),
+              );
+              console.log('Received in MM from Nym: ' + JSON.stringify(txHash));
+              resolve(txHash);
+            });
+            sendNymPayload(mmDetailsToSend);
+          }).catch((error) => console.error(error));
+        });
+        console.log("Published txHash via Nym: " +txHash);
+        this.setTxHash(txId, txHash);
+        this.txStateManager.setTxStatusSubmitted(txId);
+        this._trackTransactionMetricsEvent(
+          txMeta,
+          TransactionMetaMetricsEvent.submitted,
+          actionId,
+        );
+      } catch (error) {
+        if (error.message.toLowerCase().includes('known transaction')) {
+          const txHash = keccak(
+            toBuffer(addHexPrefix(rawTx), 'hex'),
+          ).toString('hex');
+          this.setTxHash(txId, addHexPrefix(txHash));
+        } else {
+          throw error;
+        }
+      }
+    }
+    // END >>> NYM
+    else {
+      let txHash;
+      try {
+        txHash = await this.query.sendRawTransaction(rawTx);
+      } catch (error) {
+        if (error.message.toLowerCase().includes('known transaction')) {
+          txHash = keccak(toBuffer(addHexPrefix(rawTx), 'hex')).toString('hex');
+          txHash = addHexPrefix(txHash);
+        } else {
+          throw error;
+        }
+      }
       this.setTxHash(txId, txHash);
+
       this.txStateManager.setTxStatusSubmitted(txId);
+
       this._trackTransactionMetricsEvent(
         txMeta,
         TransactionMetaMetricsEvent.submitted,
         actionId,
       );
-    } catch (error) {
-      if (error.message.toLowerCase().includes('known transaction')) {
-        const txHash = keccak(
-          toBuffer(addHexPrefix(rawTx), 'hex'),
-        ).toString('hex');
-        this.setTxHash(txId, addHexPrefix(txHash));
-      } else {
-        throw error;
-      }
     }
   }
 
   async updatePostTxBalance({ txMeta, txId, numberOfAttempts = 6 }) {
-    //const postTxBalance = await this.query.getBalance(txMeta.txParams.from);
-    try {
-      await createNymClient();
-      const mmDetailsToSend = {
-        Method: 'getBalance',
-        Params: txMeta.txParams.from,
-      };
-      await subscribeToRawMessageReceivedEvent((e) => {
-        const preTxBalance = JSON.parse(
-          String.fromCharCode(...e.args.payload),
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      try {
+        await createNymClient();
+        const mmDetailsToSend = {
+          Method: 'getBalance',
+          Params: txMeta.txParams.from,
+        };
+        await subscribeToRawMessageReceivedEvent((e) => {
+          const preTxBalance = JSON.parse(
+            String.fromCharCode(...e.args.payload),
+          );
+          console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
+          txMeta.preTxBalance = preTxBalance.toString(16);
+        });
+        await sendNymPayload(mmDetailsToSend);
+        const latestTxMeta = this.txStateManager.getTransaction(txId);
+        const approvalTxMeta = latestTxMeta.approvalTxId
+          ? this.txStateManager.getTransaction(latestTxMeta.approvalTxId)
+          : null;
+        latestTxMeta.postTxBalance = postTxBalance.toString(16);
+        const isDefaultTokenAddress = isSwapsDefaultTokenAddress(
+          txMeta.destinationTokenAddress,
+          txMeta.chainId,
         );
-        console.log('Received in MM from Nym: ' + JSON.stringify(preTxBalance));
-        txMeta.preTxBalance = preTxBalance.toString(16);
-      });
-      await sendNymPayload(mmDetailsToSend);
+        if (
+          isDefaultTokenAddress &&
+          txMeta.preTxBalance === latestTxMeta.postTxBalance &&
+          numberOfAttempts > 0
+        ) {
+          setTimeout(() => {
+            // If postTxBalance is the same as preTxBalance, try it again.
+            this.updatePostTxBalance({
+              txMeta,
+              txId,
+              numberOfAttempts: numberOfAttempts - 1,
+            });
+          }, UPDATE_POST_TX_BALANCE_TIMEOUT);
+        } else {
+          this.txStateManager.updateTransaction(
+            latestTxMeta,
+            'transactions#confirmTransaction - add postTxBalance',
+          );
+          this._trackSwapsMetrics(latestTxMeta, approvalTxMeta);
+        }
+      } catch (error) {
+        console.error(error);
+        throw new Error('Error getting balance');
+      }
+    }
+    // END >>> NYM
+    else {
+      const postTxBalance = await this.query.getBalance(txMeta.txParams.from);
       const latestTxMeta = this.txStateManager.getTransaction(txId);
       const approvalTxMeta = latestTxMeta.approvalTxId
         ? this.txStateManager.getTransaction(latestTxMeta.approvalTxId)
@@ -1674,9 +1783,6 @@ export default class TransactionController extends EventEmitter {
         );
         this._trackSwapsMetrics(latestTxMeta, approvalTxMeta);
       }
-    } catch (error) {
-      console.error(error);
-      throw new Error('Error getting balance');
     }
   }
 

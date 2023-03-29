@@ -29,7 +29,7 @@ import {
 import getFetchWithTimeout from '../../../../shared/modules/fetch-with-timeout';
 import createInfuraClient from './createInfuraClient';
 import createJsonRpcClient from './createJsonRpcClient';
-import { createNymClient, getNymSPClientAddress, subscribeToRawMessageReceivedEvent, sendNymPayload } from './createNymClient';
+import { createNymClient, subscribeToRawMessageReceivedEvent, sendNymPayload } from './createNymClient';
 
 const env = process.env.METAMASK_ENV;
 const fetchWithTimeout = getFetchWithTimeout();
@@ -302,52 +302,58 @@ export default class NetworkController extends EventEmitter {
    * @returns {object} Block header
    */
    _getLatestBlock() {
-    let block;
-    try {
-      block = new Promise((resolve, reject) => {
-        createNymClient().then(() => {
-          const mmDetailsToSend = {
-            Method: 'getBlockByNumber',
-            Params: ['latest', false],
-          };
-          const messagePromise = new Promise((messageResolve, messageReject) => {
-            subscribeToRawMessageReceivedEvent((e) => {
-              const response = JSON.parse(String.fromCharCode(...e.args.payload));
-              if (response.error) {
-                messageReject(response.error.message);
-                return;
-              }
-              console.log('Received in MM from Nym: ' + JSON.stringify(response));
-              messageResolve(response);
+    // TODO move this to a config level/feature flag
+    // SNIP >>> NYM
+    let nym = true
+    if (nym === true) {
+      let block;
+      try {
+        block = new Promise((resolve, reject) => {
+          createNymClient().then(() => {
+            const mmDetailsToSend = {
+              Method: 'getBlockByNumber',
+              Params: ['latest', false],
+            };
+            const messagePromise = new Promise((messageResolve, messageReject) => {
+              subscribeToRawMessageReceivedEvent((e) => {
+                const response = JSON.parse(String.fromCharCode(...e.args.payload));
+                if (response.error) {
+                  messageReject(response.error.message);
+                  return;
+                }
+                console.log('Received in MM from Nym: ' + JSON.stringify(response));
+                messageResolve(response);
+              });
             });
+            messagePromise.then(resolve).catch(reject);
+            sendNymPayload(mmDetailsToSend);
+          }).catch(error => {
+            reject(error);
           });
-          messagePromise.then(resolve).catch(reject);
-          sendNymPayload(mmDetailsToSend);
-        }).catch(error => {
-          reject(error);
         });
-      });
-      console.log("Block data: ", block);
-    } catch (error) {
-      console.error(error);
-      throw new Error('Error getting block data');
+        console.log("Block data: ", block);
+      } catch (error) {
+        console.error(error);
+        throw new Error('Error getting block data');
+      }
+      return block;
     }
-    return block;
-    /*TO DO nym flag or something similar to add
-    return new Promise((resolve, reject) => {
-      const { provider } = this.getProviderAndBlockTracker();
-      const ethQuery = new EthQuery(provider);
-      ethQuery.sendAsync(
-        { method: 'eth_getBlockByNumber', params: ['latest', false] },
-        (err, block) => {
-          if (err) {
-            return reject(err);
-          }
-          return resolve(block);
-        },
-      );
-    });
-    */
+    // END >>> NYM
+    else {
+      return new Promise((resolve, reject) => {
+        const { provider } = this.getProviderAndBlockTracker();
+        const ethQuery = new EthQuery(provider);
+        ethQuery.sendAsync(
+          { method: 'eth_getBlockByNumber', params: ['latest', false] },
+          (err, block) => {
+            if (err) {
+              return reject(err);
+            }
+            return resolve(block);
+          },
+        );
+      });
+    }
   }
 
   _setNetworkState(network) {
@@ -443,16 +449,20 @@ export default class NetworkController extends EventEmitter {
     const isInfura = INFURA_PROVIDER_TYPES.includes(type);
     if (isInfura) {
       this._configureInfuraProvider(type, this._infuraProjectId);
-      //TO DO change and  send only chain id here  based on type changing (switchNetwork above method)
-      // create the Nym client and send the nymSPClientAddress
-      createNymClient().then(() => {
-        let mmDetailsToSend = {
-          InfuraProjectId : this._infuraProjectId,
-          ChainId : chainId,
-        };
-        // send payload using sendNymPayload function
-        sendNymPayload(mmDetailsToSend)
-      }).catch(error => console.error(error));
+      // TODO move this to a config level/feature flag
+      // SNIP >>> NYM
+      let nym = true
+      if (nym === true) {
+        createNymClient().then(() => {
+          let mmDetailsToSend = {
+            InfuraProjectId : this._infuraProjectId,
+            ChainId : chainId,
+          };
+          // send payload using sendNymPayload function
+          sendNymPayload(mmDetailsToSend)
+        }).catch(error => console.error(error));
+      }
+      // END NYM
       // url-based rpc endpoints
     } else if (type === NETWORK_TYPES.RPC) {
       this._configureStandardProvider(rpcUrl, chainId);
