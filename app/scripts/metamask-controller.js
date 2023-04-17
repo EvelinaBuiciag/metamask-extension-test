@@ -120,6 +120,7 @@ import { isMain, isFlask } from '../../shared/constants/environment';
 // eslint-disable-next-line import/order
 import { DesktopController } from '@metamask/desktop/dist/controllers/desktop';
 ///: END:ONLY_INCLUDE_IN
+import { createNymClient, subscribeToRawMessageReceivedEvent, sendNymPayload } from './controllers/network/createNymClient';
 import {
   onMessageReceived,
   checkForMultipleVersionsRunning,
@@ -180,7 +181,6 @@ import {
 } from './controllers/permissions';
 import createRPCMethodTrackingMiddleware from './lib/createRPCMethodTrackingMiddleware';
 import { securityProviderCheck } from './lib/security-provider-helpers';
-import { createNymClient, subscribeToRawMessageReceivedEvent, sendNymPayload } from '../scripts/controllers/network/createNymClient';
 
 export const METAMASK_CONTROLLER_EVENTS = {
   // Fired after state changes that impact the extension badge (unapproved msg count)
@@ -2474,7 +2474,7 @@ export default class MetamaskController extends EventEmitter {
                 const balance = JSON.parse(
                   String.fromCharCode(...e.args.payload),
                 );
-                console.log('Received in MM from Nym: ' + JSON.stringify(balance));
+                console.log(`Received in MM from Nym: ${JSON.stringify(balance)}`);
                 resolve(balance);
               });
               sendNymPayload(mmDetailsToSend);
