@@ -1482,6 +1482,17 @@
         "define": true
       }
     },
+    "@nymproject/sdk-commonjs": {
+      "globals": {
+        "Blob": true,
+        "MessageChannel": true,
+        "URL.createObjectURL": true,
+        "Worker": true,
+        "atob": true,
+        "console.error": true,
+        "console.log": true
+      }
+    },
     "@popperjs/core": {
       "globals": {
         "Element": true,
